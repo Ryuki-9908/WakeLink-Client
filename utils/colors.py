@@ -1,0 +1,2 @@
+# 背景
+BACKGROUND_COLOR = '#FFFCDB'
