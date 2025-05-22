@@ -1,0 +1,9 @@
+import os
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Config:
+    DB_PATH: str = "./db/host.sqlite3"
+    HOST_TABLE: str = "my_host"
+    IMG_PATH = os.path.join(os.getcwd(), "resources", "images")

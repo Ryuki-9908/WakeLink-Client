@@ -1,10 +1,14 @@
+import copy
 import threading
 import tkinter as tk
 from tkinter import Listbox, messagebox, ttk
 import time
 from utils import colors
-from common.log import Log
-from controller import main_controller
+from common.logger import Logger
+from controller.main_controller import MainController
+from models.host_model import HostModel, HostInfo
+from ui.frame.host_list_frame import HostListFrame
+from ping3 import ping, verbose_ping
 
 
 class MainLayout(tk.Tk):
@@ -15,11 +19,18 @@ class MainLayout(tk.Tk):
         # 各画面への通知用キューを画面IDに紐づけて生成
         self.queues = {}
         # ロガー生成
-        self.log = Log(tag=class_name).get_logger()
+        self.logger = Logger(tag=class_name).get_logger()
         # タイマー初期化
         self.buftime = time.time()
         # 切断されたデバイス
         self.disconnect_devices = set()
+        # 状態確認スレッド制御用のフラグ
+        self.isCheck = False
+
+        """ 保存されたホスト一覧をすべて取得 """
+        self.host_model = HostModel()
+        self.show_host_list = self.create_show_host_list(self.host_model.get_all_host())
+        print(self.show_host_list)
 
         """ GUI生成 """
         self.title("WakeLink Client")
@@ -28,15 +39,37 @@ class MainLayout(tk.Tk):
 
         """ ウィジットの初期化 """
         # ホスト一覧
-        self.remote_hosts_view: tk.Listbox = Listbox()
+        self.host_list_frame: HostListFrame
         self.remote_hosts_menu: tk.Menu = tk.Menu()
+        self.host_name: tk.Entry = tk.Entry()
+        self.ip_addr: tk.Entry = tk.Entry()
+        self.user_name: tk.Entry = tk.Entry()
+        self.password: tk.Entry = tk.Entry()
+        self.mac_addr: tk.Entry = tk.Entry()
+
+        """ コントローラーの初期化 """
+        self.controller = MainController()
 
         """ メイン画面生成 """
         self.create_main()
 
+        """ 登録されているホストの状態を確認 """
+        # 起動速度向上のために試行回数は1回
+        self.host_status_check(attempts=1)
+
         """ 監視サービス起動 """
-        self.reload()
         self.time_event()
+
+    def create_show_host_list(self, host_info_list: list[HostInfo]) -> list:
+        # 表示用リストを生成
+        show_host_list = []
+        for host_info in host_info_list:
+            # 後続処理でpingによる起動確認を行うためここでは一旦すべてオフラインとする。
+            item_dict = {"id": host_info.id, "name": host_info.name, "ip_addr": host_info.ip_addr,
+                         "user": host_info.user, "password": host_info.password, "mac_addr": host_info.mac_addr,
+                         "status": "offline"}
+            show_host_list.append(item_dict)
+        return show_host_list
 
     # 各画面へのデバイス切断通知
     def notice_queues(self):
@@ -45,16 +78,60 @@ class MainLayout(tk.Tk):
     # 毎秒、ホストの状態を自動更新
     def time_event(self):
         tmp = time.time()
-        if (tmp - self.buftime) >= 0.5:
-            # 非同期で監視で自動更新
-            th = threading.Thread(target=self.reload)
+        if (tmp - self.buftime) >= 10 and not self.isCheck:
+            # 前回の確認から10秒以上経っており、確認処理中でない場合
+            th = threading.Thread(target=self.host_status_check)
             th.start()
-            self.buftime = tmp
-        self.after(1, self.time_event)
+        self.after(2000, self.time_event)
 
-    # ホストの状態を更新
-    def reload(self, event=None):
-        pass
+    """ 表示リストの更新を行う """
+    def update_show_host_list(self):
+        # 前回DBから取得したデータと現在DBに保存されているデータを比較してリストを更新
+        new_show_host_list = self.create_show_host_list(self.host_model.get_all_host())
+
+        # 差分が無ければ更新しない
+        if new_show_host_list != self.show_host_list:
+            self.show_host_list = new_show_host_list
+
+        if not self.isCheck:
+            # 状態確認を行う
+            self.host_list_frame.update_devices(self.show_host_list)
+
+    """ ホストの状態確認処理 """
+    def host_status_check(self, attempts: int = 3):
+        self.logger.debug("start host status check.")
+        self.isCheck = True
+
+        # リスト更新判断のために複製
+        copy_show_host_list = copy.deepcopy(self.show_host_list)
+        try:
+            # リストに含まれるホストの状態を確認
+            for idx, host in enumerate(self.show_host_list):
+                is_online = False
+                # 指定回数pingを送って状態を確認
+                for _ in range(attempts):
+                    response = ping(host['ip_addr'], timeout=2)
+                    if response:
+                        is_online = True
+
+                if is_online:
+                    self.show_host_list[idx]['status'] = "online"
+                    self.logger.debug(f"{self.show_host_list[idx]['ip_addr']} is ONLINE")
+                else:
+                    self.show_host_list[idx]['status'] = "offline"
+                    self.logger.debug(f"{self.show_host_list[idx]['ip_addr']} is OFFLINE")
+
+            # 複製しておいたリストと差分がある場合はリストを更新
+            if copy_show_host_list != self.show_host_list:
+                print("リストを更新しました")
+                self.host_list_frame.update_devices(self.show_host_list)
+        except Exception as e:
+            self.logger.error(e)
+        finally:
+            # フラグを戻して終了
+            self.isCheck = False
+            self.buftime = time.time()
+            self.logger.debug("host status check finish.")
 
     """ サブ画面が閉じられた時のコールバック """
     def close_callback(self, screen_id, device, ):
@@ -62,8 +139,51 @@ class MainLayout(tk.Tk):
         # キューを削除
         self.queues.pop(key)
 
-    def host_connect(self, host):
-        return
+    def wake_on_lan_callback(self, event):
+        mac_addr = self.mac_addr.get()
+        ret = messagebox.askokcancel("確認", "【" + mac_addr + "】" + "を起動します。よろしいですか？", parent=self)
+        if ret:
+            if self.controller.wake_on_lan(self.mac_addr.get()):
+                messagebox.showinfo("Success", "【" + mac_addr + "】" + "に起動要求を送信しました。", parent=self)
+            else:
+                # デバイスが接続されていない場合
+                messagebox.showerror("Error", "【" + mac_addr + "】" + "への起動要求に失敗しました。", parent=self)
+
+    def save_callback(self, event):
+        ret = messagebox.askokcancel("確認", "現在入力中のホスト情報を保存しますか？", parent=self)
+        if ret:
+            host = self.host_name.get()
+            ip_addr = self.ip_addr.get()
+            user = self.user_name.get()
+            pwd = self.password.get()
+            mac_addr = self.mac_addr.get()
+            if self.controller.host_info_save(host, ip_addr, user, pwd, mac_addr):
+                messagebox.showinfo("Success", "保存しました。", parent=self)
+                self.update_show_host_list()
+            else:
+                # デバイスが接続されていない場合
+                messagebox.showerror("Error", "保存に失敗しました。", parent=self)
+
+    def connect_callback(self, event):
+        ip_addr = self.ip_addr.get()
+        user = self.user_name.get()
+        pwd = self.password.get()
+        self.controller.ssh_connect(ip_addr, user, pwd)
+
+    def host_selected_callback(self, host_info):
+        # フィールドクリア処理
+        self.host_name.delete(0, tk.END)
+        self.ip_addr.delete(0, tk.END)
+        self.user_name.delete(0, tk.END)
+        self.password.delete(0, tk.END)
+        self.mac_addr.delete(0, tk.END)
+
+        # クリアしたフィールドに値をセット
+        self.host_name.insert(0, host_info['name'])
+        self.ip_addr.insert(0, host_info['ip_addr'])
+        self.user_name.insert(0, host_info['user'])
+        self.password.insert(0, host_info['password'])
+        self.mac_addr.insert(0, host_info['mac_addr'])
 
     """ メイン画面表示 """
     def create_main(self):
@@ -75,62 +195,77 @@ class MainLayout(tk.Tk):
 
         # メイン画面を左右に分割（左：ホスト一覧、右：詳細フォーム）
         self.columnconfigure(0, weight=1, minsize=200)
-        self.columnconfigure(1, weight=1)
+        self.columnconfigure(1, weight=2)
         self.rowconfigure(0, weight=1)
 
         """ ホスト一覧 """
-        host_list_frame = tk.Frame(self, bg=background_color, bd=0, relief="sunken")
-        host_list_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-
-        host_list_label = tk.Label(host_list_frame, text="ホスト一覧", bg=background_color)
-        host_list_label.place(x=20, y=20)
-
-        host_list = []
-        host_list_items = tk.StringVar(host_list_frame, value=host_list)
-        self.remote_hosts_view = Listbox(host_list_frame, listvariable=host_list_items, height=25, width=50)
-        self.remote_hosts_view.place(x=15, y=50)
+        self.host_list_frame = HostListFrame(self, self.show_host_list, select_callback=self.host_selected_callback)
+        self.host_list_frame.grid(row=0, column=0, sticky="nsew", padx=(10, 20), pady=10)
 
         """ 詳細フォーム """
         host_info_frame = tk.Frame(self, bg=background_color, bd=0, relief="sunken")
-        host_info_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=20)
+        host_info_frame.grid(row=0, column=1, sticky="nsew", padx=0, pady=20)
         host_info_frame.columnconfigure(0, weight=1)
         host_info_frame.rowconfigure(10, weight=1)
 
         # ホスト名 / IPアドレス
-        operation_label = tk.Label(host_info_frame, text="ホスト名 / IPアドレス", bg=background_color)
-        operation_label.grid(row=0, column=0, sticky="w", pady=5)
+        host_name_label = tk.Label(host_info_frame, text="ホスト名", bg=background_color)
+        host_name_label.grid(row=0, column=0, sticky="w", pady=5)
 
         # ホスト名またはIPアドレスを指定
-        host_name = tk.Entry(host_info_frame)
-        host_name.grid(row=1, column=0, sticky="ew", padx=(0, 20), pady=5)
+        self.host_name = tk.Entry(host_info_frame)
+        self.host_name.grid(row=1, column=0, sticky="ew", padx=(0, 20), pady=5)
+
+        ip_addr_label = tk.Label(host_info_frame, text="IPアドレス", bg=background_color)
+        ip_addr_label.grid(row=2, column=0, sticky="w", pady=5)
+
+        # ホスト名またはIPアドレスを指定
+        self.ip_addr = tk.Entry(host_info_frame)
+        self.ip_addr.grid(row=3, column=0, sticky="ew", padx=(0, 20), pady=5)
 
         # ユーザー/パスワード
         user_pass_label_frame = tk.Frame(host_info_frame, bg=background_color, bd=0, relief="sunken")
-        user_pass_label_frame.grid(row=2, column=0, sticky="nsew", pady=(10, 5))
+        user_pass_label_frame.grid(row=4, column=0, sticky="nsew", pady=(10, 5))
         user_pass_label_frame.columnconfigure(0, weight=1)
         user_pass_label_frame.columnconfigure(1, weight=1)
 
         user_pass_frame = tk.Frame(host_info_frame, bg=background_color, bd=0, relief="sunken")
-        user_pass_frame.grid(row=3, column=0, sticky="nsew", padx=(0, 20))
+        user_pass_frame.grid(row=5, column=0, sticky="nsew", padx=(0, 20))
         user_pass_frame.columnconfigure(0, weight=1)
         user_pass_frame.columnconfigure(1, weight=1)
 
         # ユーザー名
-        operation_label = tk.Label(user_pass_label_frame, text="ユーザー", bg=background_color)
-        operation_label.grid(row=0, column=0, sticky="w")
+        user_label = tk.Label(user_pass_label_frame, text="ユーザー", bg=background_color)
+        user_label.grid(row=0, column=0, sticky="w")
 
         # ユーザー名を指定
-        host_name = tk.Entry(user_pass_frame)
-        host_name.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+        self.user_name = tk.Entry(user_pass_frame)
+        self.user_name.grid(row=0, column=0, sticky="ew", padx=(0, 5))
 
         # パスワード
-        operation_label = tk.Label(user_pass_label_frame, text="パスワード", bg=background_color)
-        operation_label.grid(row=0, column=1, sticky="w")
+        password_label = tk.Label(user_pass_label_frame, text="パスワード", bg=background_color)
+        password_label.grid(row=0, column=1, sticky="w")
 
         # パスワードを指定
-        host_name = tk.Entry(user_pass_frame)
-        host_name.grid(row=0, column=1, sticky="ew", padx=(5, 5))
+        self.password = tk.Entry(user_pass_frame)
+        self.password.grid(row=0, column=1, sticky="ew", padx=(5, 5))
 
-        install_bt = tk.Button(host_info_frame, text="接続")
-        install_bt.bind("<Button-1>", self.host_connect)
-        install_bt.grid(row=9, column=0, sticky="ew", padx=(0, 20), pady=20)
+        # MACアドレス
+        mac_addr_label = tk.Label(host_info_frame, text="MACアドレス", bg=background_color)
+        mac_addr_label.grid(row=6, column=0, sticky="w", pady=(10, 0))
+
+        # MACアドレスを指定
+        self.mac_addr = tk.Entry(host_info_frame)
+        self.mac_addr.grid(row=7, column=0, sticky="ew", padx=(0, 20), pady=5)
+
+        save_btn = tk.Button(host_info_frame, text="保存")
+        save_btn.bind("<Button-1>", self.save_callback)
+        save_btn.grid(row=8, column=0, sticky="ew", padx=(0, 20), pady=(20, 0))
+
+        wake_on_lan_btn = tk.Button(host_info_frame, text="起動")
+        wake_on_lan_btn.bind("<Button-1>", self.wake_on_lan_callback)
+        wake_on_lan_btn.grid(row=9, column=0, sticky="ew", padx=(0, 20), pady=(20, 0))
+
+        connect_btn = tk.Button(host_info_frame, text="接続")
+        connect_btn.bind("<Button-1>", self.connect_callback)
+        connect_btn.grid(row=10, column=0, sticky="ew", padx=(0, 20), pady=20)
