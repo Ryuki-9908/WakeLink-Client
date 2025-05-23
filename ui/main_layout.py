@@ -113,6 +113,7 @@ class MainLayout(tk.Tk):
                     response = ping(host['ip_addr'], timeout=2)
                     if response:
                         is_online = True
+                        break   # オンラインが確認出来たら抜ける
 
                 if is_online:
                     self.show_host_list[idx]['status'] = "online"
