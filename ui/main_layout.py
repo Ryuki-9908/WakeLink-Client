@@ -1,4 +1,5 @@
 import copy
+import subprocess
 import threading
 import tkinter as tk
 from tkinter import Listbox, messagebox, ttk
@@ -8,7 +9,8 @@ from common.logger import Logger
 from controller.main_controller import MainController
 from models.host_model import HostModel, HostInfo
 from ui.frame.host_list_frame import HostListFrame
-from ping3 import ping, verbose_ping
+from ping3 import ping
+from common.base_component import BaseComponent
 
 
 class MainLayout(tk.Tk):
@@ -26,6 +28,10 @@ class MainLayout(tk.Tk):
         self.disconnect_devices = set()
         # 状態確認スレッド制御用のフラグ
         self.isCheck = False
+        # ロガーやconfigなど共通部を初期化
+        self.component = BaseComponent(class_name=self.__class__.__name__)
+        # Pythonのコマンドを取得する。環境によって異なるためsetting.iniで管理。
+        self.python_cmd = self.component.setting.get(section="Settings", key="python_cmd")
 
         """ 保存されたホスト一覧をすべて取得 """
         self.host_model = HostModel()
@@ -110,7 +116,10 @@ class MainLayout(tk.Tk):
                 is_online = False
                 # 指定回数pingを送って状態を確認
                 for _ in range(attempts):
-                    response = ping(host['ip_addr'], timeout=2)
+                    response = subprocess.run(
+                        [self.python_cmd, self.component.config.SEND_PING_FILE, host['ip_addr']],
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                    )
                     if response:
                         is_online = True
                         break   # オンラインが確認出来たら抜ける
@@ -124,7 +133,6 @@ class MainLayout(tk.Tk):
 
             # 複製しておいたリストと差分がある場合はリストを更新
             if copy_show_host_list != self.show_host_list:
-                print("リストを更新しました")
                 self.host_list_frame.update_devices(self.show_host_list)
         except Exception as e:
             self.logger.error(e)
