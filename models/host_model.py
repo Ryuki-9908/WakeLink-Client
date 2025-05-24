@@ -12,9 +12,20 @@ class HostModel(BaseComponent):
     def insert(self, host, ip_addr, user, password, mac_addr):
         result = False
         try:
-            """ホストをINSERT"""
+            """ホストを追加"""
             query = "INSERT INTO {} (host, ip_addr, user, password, mac_addr ) VALUES (?, ?, ?, ?, ?)".format(self.table_name)
             self.repository.execute_query(query, (host, ip_addr, user, password, mac_addr))
+            result = True
+        except Exception as e:
+            self.logger.debug(e)
+        return result
+
+    def delete(self, id):
+        result = False
+        try:
+            """ホストを削除"""
+            query = "DELETE FROM {} WHERE id = ?".format(self.table_name)
+            self.repository.execute_update(query, (id,))
             result = True
         except Exception as e:
             self.logger.debug(e)
