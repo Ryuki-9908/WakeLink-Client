@@ -15,6 +15,9 @@ class MainController(BaseComponent):
     def host_info_save(self, host, ip_addr, user, pwd, mac_addr):
         return self.host_model.insert(host, ip_addr, user, pwd, mac_addr)
 
+    def host_info_delete(self, id):
+        return self.host_model.delete(id)
+
     def wake_on_lan(self, mac_addr):
         result = False
         try:
