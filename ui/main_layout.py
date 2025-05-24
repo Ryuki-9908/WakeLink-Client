@@ -1,7 +1,9 @@
+import asyncio
 import copy
 import subprocess
 import threading
 import tkinter as tk
+import tracemalloc
 from tkinter import Listbox, messagebox, ttk
 import time
 from utils import colors
@@ -36,7 +38,6 @@ class MainLayout(tk.Tk):
         """ 保存されたホスト一覧をすべて取得 """
         self.host_model = HostModel()
         self.show_host_list = self.create_show_host_list(self.host_model.get_all_host())
-        print(self.show_host_list)
 
         """ GUI生成 """
         self.title("WakeLink Client")
@@ -59,12 +60,12 @@ class MainLayout(tk.Tk):
         """ メイン画面生成 """
         self.create_main()
 
-        """ 登録されているホストの状態を確認 """
-        # 起動速度向上のために試行回数は1回
-        self.host_status_check(attempts=1)
+        """ 選択中アイテムのID """
+        self.selected_id = 0
 
         """ 監視サービス起動 """
-        self.time_event()
+        self.thread_lock = threading.Lock()  # スレッドロックを使用
+        self.time_event(interval=0, attempts=1)
 
     def create_show_host_list(self, host_info_list: list[HostInfo]) -> list:
         # 表示用リストを生成
@@ -82,13 +83,17 @@ class MainLayout(tk.Tk):
         pass
 
     # 毎秒、ホストの状態を自動更新
-    def time_event(self):
+    def time_event(self, interval = 10, attempts = 3, after_time = 2000):
         tmp = time.time()
-        if (tmp - self.buftime) >= 10 and not self.isCheck:
+        if (tmp - self.buftime) >= interval and not self.isCheck:
             # 前回の確認から10秒以上経っており、確認処理中でない場合
-            th = threading.Thread(target=self.host_status_check)
-            th.start()
-        self.after(2000, self.time_event)
+            if self.thread_lock.acquire(blocking=False):  # スレッドロックをチェック
+                try:
+                    th = threading.Thread(target=self.host_status_check, args=(attempts,), daemon=True)
+                    th.start()
+                finally:
+                    self.thread_lock.release()  # スレッドロックを解除
+        self.after(after_time, self.time_event)
 
     """ 表示リストの更新を行う """
     def update_show_host_list(self):
@@ -105,7 +110,6 @@ class MainLayout(tk.Tk):
 
     """ ホストの状態確認処理 """
     def host_status_check(self, attempts: int = 3):
-        self.logger.debug("start host status check.")
         self.isCheck = True
 
         # リスト更新判断のために複製
@@ -116,20 +120,21 @@ class MainLayout(tk.Tk):
                 is_online = False
                 # 指定回数pingを送って状態を確認
                 for _ in range(attempts):
-                    response = subprocess.run(
-                        [self.python_cmd, self.component.config.SEND_PING_FILE, host['ip_addr']],
-                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-                    )
-                    if response:
-                        is_online = True
-                        break   # オンラインが確認出来たら抜ける
+                    try:
+                        # port:22で死活監視
+                        response = subprocess.run(
+                            [self.python_cmd, self.component.config.SEND_PING_FILE, "--ip", host['ip_addr'], "--port", "22"],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                        )
+                        if response.returncode == 0:
+                            is_online = True
+                    except Exception as e:
+                        self.logger.error(e)
 
                 if is_online:
                     self.show_host_list[idx]['status'] = "online"
-                    self.logger.debug(f"{self.show_host_list[idx]['ip_addr']} is ONLINE")
                 else:
                     self.show_host_list[idx]['status'] = "offline"
-                    self.logger.debug(f"{self.show_host_list[idx]['ip_addr']} is OFFLINE")
 
             # 複製しておいたリストと差分がある場合はリストを更新
             if copy_show_host_list != self.show_host_list:
@@ -140,7 +145,6 @@ class MainLayout(tk.Tk):
             # フラグを戻して終了
             self.isCheck = False
             self.buftime = time.time()
-            self.logger.debug("host status check finish.")
 
     """ サブ画面が閉じられた時のコールバック """
     def close_callback(self, screen_id, device, ):
@@ -180,6 +184,9 @@ class MainLayout(tk.Tk):
         self.controller.ssh_connect(ip_addr, user, pwd)
 
     def host_selected_callback(self, host_info):
+        # 選択中アイテムIDを保持
+        self.selected_id = host_info['id']
+
         # フィールドクリア処理
         self.host_name.delete(0, tk.END)
         self.ip_addr.delete(0, tk.END)

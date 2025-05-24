@@ -1,3 +1,4 @@
+import os
 import tkinter as tk
 from tkinter import PhotoImage
 from common.base_component import BaseComponent
@@ -21,8 +22,8 @@ class HostListFrame(tk.Frame):
         img_path = component.config.IMG_PATH
 
         # アイコン画像の読み込み
-        self.icon_online = PhotoImage(file=img_path + "\\pc_online.png")
-        self.icon_offline = PhotoImage(file=img_path + "\\pc_offline.png")
+        self.icon_online = PhotoImage(file=os.path.join(img_path, "pc_online.png"))
+        self.icon_offline = PhotoImage(file=os.path.join(img_path, "pc_offline.png"))
 
         self.canvas = tk.Canvas(self, borderwidth=0, background="#ffffff")
         self.scrollbar = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
