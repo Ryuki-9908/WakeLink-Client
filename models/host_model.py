@@ -26,13 +26,14 @@ class HostModel(BaseComponent):
         hosts = self.repository.execute_query(query)
         host_info_list = []
         for host in hosts:
-            host_info = HostInfo
-            host_info.id = host[0]
-            host_info.name = host[1]
-            host_info.ip_addr = host[2]
-            host_info.user = host[3]
-            host_info.password = host[4]
-            host_info.mac_addr = host[5]
+            host_info = HostInfo(
+                id=host[0],
+                name=host[1],
+                ip_addr=host[2],
+                user=host[3],
+                password=host[4],
+                mac_addr=host[5],
+            )
             host_info_list.append(host_info)
         return host_info_list
 

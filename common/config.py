@@ -7,3 +7,5 @@ class Config:
     DB_PATH: str = "./db/host.sqlite3"
     HOST_TABLE: str = "my_host"
     IMG_PATH = os.path.join(os.getcwd(), "resources", "images")
+    SEND_PING_FILE = os.path.join(os.getcwd(), "utils", "send_ping.py")
+    SETTING_INI = os.path.join(os.getcwd(), "common", "setting.ini")
