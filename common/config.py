@@ -9,3 +9,4 @@ class Config:
     IMG_PATH = os.path.join(os.getcwd(), "resources", "images")
     SEND_PING_FILE = os.path.join(os.getcwd(), "utils", "send_ping.py")
     SETTING_INI = os.path.join(os.getcwd(), "common", "setting.ini")
+    SSH_TERMINAL_FILE = os.path.join(os.getcwd(), "utils", "ssh_terminal.py")

@@ -1,10 +1,8 @@
-import threading
-import paramiko
+import subprocess
 from wakeonlan import send_magic_packet
-from prompt_toolkit import PromptSession
-from prompt_toolkit.history import InMemoryHistory
 from common.base_component import BaseComponent
 from models.host_model import HostModel
+import platform
 
 
 class MainController(BaseComponent):
@@ -29,33 +27,17 @@ class MainController(BaseComponent):
 
         return result
 
-    def interactive_shell(self, ip_addr, user, password):
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(hostname=ip_addr, username=user, password=password)
-
-        chan = client.invoke_shell()
-        history = InMemoryHistory()
-        session = PromptSession(history=history)
-
-        def recv_loop():
-            while True:
-                if chan.recv_ready():
-                    data = chan.recv(1024)
-                    print(data.decode(errors="ignore"), end="", flush=True)
-
-        thread = threading.Thread(target=recv_loop, daemon=True)
-        thread.start()
-
-        try:
-            while True:
-                cmd = session.prompt("> ")  # 入力補完・履歴対応
-                chan.send(cmd + "\n")
-        except (KeyboardInterrupt, EOFError):
-            print("\n終了します")
-        finally:
-            chan.close()
-            client.close()
-
-    def ssh_connect(self, ip_addr, user, pwd):
-        self.interactive_shell(ip_addr, user, pwd)
+    def ssh_connect(self, ip_addr, user, password, port="22"):
+        python = self.setting.get(section="Settings", key="python_cmd")
+        file_path = self.config.SSH_TERMINAL_FILE
+        options = ["--ip", ip_addr, "--port", port, "--user", user, "--pwd", password]
+        # 環境によってコマンドを分ける
+        if platform.system() == "Windows":
+            # windowsの場合
+            subprocess.Popen(["cmd", "/c", python, file_path] + options,
+                             creationflags=subprocess.CREATE_NEW_CONSOLE)
+        elif platform.system() == "Linux":
+            # Linuxの場合
+            # xtermを使うため（sudo apt install xtermでインストール必須）
+            python_cmd = f"{python} {file_path} --ip {ip_addr} --port {port} --user {user} --pwd {password}"
+            subprocess.Popen(['xterm', '-e', 'bash', '-c', python_cmd])
