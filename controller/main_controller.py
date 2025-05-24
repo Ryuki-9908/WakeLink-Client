@@ -35,8 +35,8 @@ class MainController(BaseComponent):
             subprocess.Popen(["cmd", "/c", python, file_path] + options,
                              creationflags=subprocess.CREATE_NEW_CONSOLE)
         elif platform.system() == "Linux":
-            footer = [";", "exec", "bash"]
-            subprocess.Popen(['gnome-terminal', '--', 'bash', '-c', python, file_path + options + footer])
+            python_cmd = f"{python} {file_path} --ip {ip_addr} --port {port} --user {user} --pwd {password}"
+            subprocess.Popen(['xterm', '-e', 'bash', '-c', python_cmd])
 
     def ssh_connect(self, ip_addr, user, pwd):
         self.interactive_shell(ip_addr, user, pwd)
