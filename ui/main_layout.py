@@ -164,13 +164,16 @@ class MainLayout(tk.Tk):
 
     def wake_on_lan_callback(self, event):
         mac_addr = self.mac_addr.get()
-        ret = messagebox.askokcancel("確認", "【" + mac_addr + "】" + "を起動します。よろしいですか？", parent=self)
-        if ret:
-            if self.controller.wake_on_lan(self.mac_addr.get()):
-                messagebox.showinfo("Success", "【" + mac_addr + "】" + "に起動要求を送信しました。", parent=self)
-            else:
-                # デバイスが接続されていない場合
-                messagebox.showerror("Error", "【" + mac_addr + "】" + "への起動要求に失敗しました。", parent=self)
+        if len(mac_addr) > 0:
+            ret = messagebox.askokcancel("確認", "【" + mac_addr + "】" + "を起動します。よろしいですか？", parent=self)
+            if ret:
+                if self.controller.wake_on_lan(self.mac_addr.get()):
+                    messagebox.showinfo("Success", "【" + mac_addr + "】" + "に起動要求を送信しました。", parent=self)
+                else:
+                    # デバイスが接続されていない場合
+                    messagebox.showerror("Error", "【" + mac_addr + "】" + "への起動要求に失敗しました。", parent=self)
+        else:
+            messagebox.showerror("Error", "MACアドレスが入力されていません。", parent=self)
 
     def save_callback(self, event):
         name = self.host_name.get()
@@ -214,10 +217,17 @@ class MainLayout(tk.Tk):
                 messagebox.showerror("Error", "削除に失敗しました。", parent=self)
 
     def connect_callback(self, event):
+        name = self.host_name.get()
         ip_addr = self.ip_addr.get()
         user = self.user_name.get()
         pwd = self.password.get()
-        self.controller.ssh_connect(ip_addr, user, pwd)
+
+        if len(ip_addr) > 0:
+            ret = messagebox.askokcancel("SSH接続確認", f"【{name}({ip_addr})】に接続します。よろしいですか？", parent=self)
+            if ret:
+                self.controller.ssh_connect(ip_addr, user, pwd)
+        else:
+            messagebox.showerror("Error", "IPアドレスが入力されていません。", parent=self)
 
     def host_selected_callback(self, host_info):
         # 選択中アイテムIDを保持
