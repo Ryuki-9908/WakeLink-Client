@@ -57,6 +57,9 @@ class MainLayout(tk.Tk):
         """ コントローラーの初期化 """
         self.controller = MainController()
 
+        """ 画面生成前に状態確認を行う """
+        self.host_status_check(attempts=1)
+
         """ メイン画面生成 """
         self.create_main()
 
@@ -65,7 +68,7 @@ class MainLayout(tk.Tk):
 
         """ 監視サービス起動 """
         self.thread_lock = threading.Lock()  # スレッドロックを使用
-        self.time_event(interval=0, attempts=1)
+        self.time_event()
 
     def create_show_host_list(self, host_info_list: list[HostInfo]) -> list:
         # 表示用リストを生成
