@@ -27,16 +27,17 @@ class MainController(BaseComponent):
 
         return result
 
-    def interactive_shell(self, ip_addr, user, password, port="22"):
+    def ssh_connect(self, ip_addr, user, password, port="22"):
         python = self.setting.get(section="Settings", key="python_cmd")
         file_path = self.config.SSH_TERMINAL_FILE
         options = ["--ip", ip_addr, "--port", port, "--user", user, "--pwd", password]
+        # 環境によってコマンドを分ける
         if platform.system() == "Windows":
+            # windowsの場合
             subprocess.Popen(["cmd", "/c", python, file_path] + options,
                              creationflags=subprocess.CREATE_NEW_CONSOLE)
         elif platform.system() == "Linux":
+            # Linuxの場合
+            # xtermを使うため（sudo apt install xtermでインストール必須）
             python_cmd = f"{python} {file_path} --ip {ip_addr} --port {port} --user {user} --pwd {password}"
             subprocess.Popen(['xterm', '-e', 'bash', '-c', python_cmd])
-
-    def ssh_connect(self, ip_addr, user, pwd):
-        self.interactive_shell(ip_addr, user, pwd)

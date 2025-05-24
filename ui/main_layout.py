@@ -2,7 +2,7 @@ import copy
 import subprocess
 import threading
 import tkinter as tk
-from tkinter import Listbox, messagebox, ttk
+from tkinter import messagebox
 import time
 from utils import colors, process_type
 from common.logger import Logger

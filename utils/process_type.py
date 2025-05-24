@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import auto
 
 # 保存
 SAVE = auto()
