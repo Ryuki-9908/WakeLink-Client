@@ -1,4 +1,5 @@
 import copy
+import re
 import subprocess
 import threading
 import tkinter as tk
@@ -10,9 +11,10 @@ from controller.main_controller import MainController
 from models.host_model import HostModel, HostInfo
 from ui.frame.host_list_frame import HostListFrame
 from common.base_component import BaseComponent
+from ui.widgets.main_widgets import MainWidgets
 
 
-class MainLayout(tk.Tk):
+class MainWindow(tk.Tk):
     def __init__(self):
         super().__init__()
         """ 初期化処理 """
@@ -42,11 +44,13 @@ class MainLayout(tk.Tk):
         self.resizable(width=False, height=False)
 
         """ ウィジットの初期化 """
+        self.widgets = MainWidgets(master=self)
         # ホスト一覧
         self.host_list_frame: HostListFrame = None
         self.remote_hosts_menu: tk.Menu = tk.Menu()
         self.host_name: tk.Entry = tk.Entry()
         self.ip_addr: tk.Entry = tk.Entry()
+        self.port: tk.Entry = tk.Entry()
         self.user_name: tk.Entry = tk.Entry()
         self.password: tk.Entry = tk.Entry()
         self.mac_addr: tk.Entry = tk.Entry()
@@ -73,8 +77,8 @@ class MainLayout(tk.Tk):
         for host_info in host_info_list:
             # 後続処理でpingによる起動確認を行うためここでは一旦すべてオフラインとする。
             show_host_map[host_info.id] = {"id": host_info.id, "name": host_info.name, "ip_addr": host_info.ip_addr,
-                                           "user": host_info.user, "password": host_info.password, "mac_addr": host_info.mac_addr,
-                                           "status": "offline"}
+                                           "port": host_info.port, "user": host_info.user, "password": host_info.password,
+                                           "mac_addr": host_info.mac_addr, "status": "offline"}
         return show_host_map
 
     # 各画面へのデバイス切断通知
@@ -131,9 +135,14 @@ class MainLayout(tk.Tk):
                     # IPの入力が無い場合は即抜ける
                     if len(host['ip_addr']) == 0: break
                     try:
+                        # 入力されているポート番号を指定する。無ければデフォルト"22"
+                        ssh_port = "22"
+                        if len(str(ssh_port)) == 0:
+                            ssh_port = str(host['port'])
+
                         # port:22で死活監視
                         response = subprocess.run(
-                            [self.python_cmd, self.component.config.SEND_PING_FILE, "--ip", host['ip_addr'], "--port", "22"],
+                            [self.python_cmd, self.component.config.SEND_PING_FILE, "--ip", host['ip_addr'], "--port", ssh_port],
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
                         )
                         if response.returncode == 0:
@@ -181,10 +190,11 @@ class MainLayout(tk.Tk):
             ret = messagebox.askokcancel("確認", "現在入力中のホスト情報を保存しますか？", parent=self)
             if ret:
                 ip_addr = self.ip_addr.get()
+                port = self.port.get()
                 user = self.user_name.get()
                 pwd = self.password.get()
                 mac_addr = self.mac_addr.get()
-                if self.controller.host_info_save(name, ip_addr, user, pwd, mac_addr):
+                if self.controller.host_info_save(name, ip_addr, port, user, pwd, mac_addr):
                     messagebox.showinfo("Success", "保存しました。", parent=self)
                     self.update_show_host_list()
                 else:
@@ -219,13 +229,14 @@ class MainLayout(tk.Tk):
     def connect_callback(self, event):
         name = self.host_name.get()
         ip_addr = self.ip_addr.get()
+        port = self.port.get()
         user = self.user_name.get()
         pwd = self.password.get()
 
         if len(ip_addr) > 0:
             ret = messagebox.askokcancel("SSH接続確認", f"【{name}({ip_addr})】に接続します。よろしいですか？", parent=self)
             if ret:
-                self.controller.ssh_connect(ip_addr, user, pwd)
+                self.controller.ssh_connect(ip_addr, port, user, pwd)
         else:
             messagebox.showerror("Error", "IPアドレスが入力されていません。", parent=self)
 
@@ -236,6 +247,7 @@ class MainLayout(tk.Tk):
         # フィールドクリア処理
         self.host_name.delete(0, tk.END)
         self.ip_addr.delete(0, tk.END)
+        self.port.delete(0, tk.END)
         self.user_name.delete(0, tk.END)
         self.password.delete(0, tk.END)
         self.mac_addr.delete(0, tk.END)
@@ -243,9 +255,19 @@ class MainLayout(tk.Tk):
         # クリアしたフィールドに値をセット
         self.host_name.insert(0, host_info['name'])
         self.ip_addr.insert(0, host_info['ip_addr'])
+        self.port.insert(0, host_info['port'])
         self.user_name.insert(0, host_info['user'])
         self.password.insert(0, host_info['password'])
         self.mac_addr.insert(0, host_info['mac_addr'])
+
+    def clear_field(self, event):
+        # フィールドクリア処理
+        self.host_name.delete(0, tk.END)
+        self.ip_addr.delete(0, tk.END)
+        self.port.delete(0, tk.END)
+        self.user_name.delete(0, tk.END)
+        self.password.delete(0, tk.END)
+        self.mac_addr.delete(0, tk.END)
 
     """ メイン画面表示 """
     def create_main(self):
@@ -284,9 +306,14 @@ class MainLayout(tk.Tk):
         host_info_frame.rowconfigure(0, weight=1)
         host_info_frame.rowconfigure(1, weight=9)
 
-        # ホスト情報
+        # 見出し領域
         host_info_label = tk.Label(host_info_frame, text="ホスト情報", bg=background_color, font=("メイリオ", "15", "bold"))
         host_info_label.grid(row=0, column=0, sticky="ew", pady=(5, 10))
+
+        # 入力クリアボタン
+        clear_btn = tk.Button(host_info_frame, text="入力クリア")
+        clear_btn.bind("<Button-1>", self.clear_field)
+        clear_btn.grid(row=0, column=1, sticky="se", padx=(0, 20))
 
         # ラベル領域
         label_frame = tk.Frame(host_info_frame, bg=background_color, bd=0, relief="sunken")
@@ -336,9 +363,20 @@ class MainLayout(tk.Tk):
         self.host_name = tk.Entry(data_frame, font=("MSゴシック", "10", "bold"))
         self.host_name.grid(row=grid_row_increment(reset=True), column=1, sticky="ew", pady=data_frame_pady, ipady=4)
 
+        # IP / Port入力領域
+        ip_port_frame = tk.Frame(data_frame, bg=background_color, bd=0, relief="sunken")
+        ip_port_frame.grid(row=grid_row_increment(), column=1, sticky="nsew", pady=data_frame_pady)
+        ip_port_frame.columnconfigure(0, weight=1)
+        ip_port_frame.columnconfigure(1, weight=3)
+        ip_port_frame.rowconfigure(0, weight=1)
+
         # IPアドレスを指定
-        self.ip_addr = tk.Entry(data_frame, font=("MSゴシック", "10", "bold"))
-        self.ip_addr.grid(row=grid_row_increment(), column=1, sticky="ew", pady=data_frame_pady, ipady=4)
+        self.ip_addr = tk.Entry(ip_port_frame, font=("MSゴシック", "10", "bold"))
+        self.ip_addr.grid(row=0, column=0, sticky="ew", ipady=4)
+
+        # ポートを指定
+        self.port = self.widgets.port_entry(ip_port_frame, max_length=5)
+        self.port.grid(row=0, column=1, sticky="ew", padx=data_frame_pady, ipady=4)
 
         # ユーザー名を指定
         self.user_name = tk.Entry(data_frame, font=("MSゴシック", "10", "bold"))

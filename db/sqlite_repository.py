@@ -42,7 +42,7 @@ class SQLiteRepository(BaseComponent):
             try:
                 cur = self.conn.cursor()
                 # table生成
-                cur.execute('CREATE TABLE my_host(id INTEGER PRIMARY KEY AUTOINCREMENT, host STRING, ip_addr STRING, user STRING, password STRING, mac_addr STRING)')
+                cur.execute('CREATE TABLE my_host(id INTEGER PRIMARY KEY AUTOINCREMENT, host STRING, ip_addr STRING, port STRING, user STRING, password STRING, mac_addr STRING)')
                 # DBコミット
                 self.conn.commit()
             except OperationalError as e:
