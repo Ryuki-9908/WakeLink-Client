@@ -5,32 +5,29 @@ import threading
 import tkinter as tk
 from tkinter import messagebox
 import time
+
+from ui.dialogs import dialog_ids
+from ui.dialogs.dialog_manager import DialogKey, dialog_manager
 from utils import colors, process_type
 from common.logger import Logger
 from controller.main_controller import MainController
 from models.host_model import HostModel, HostInfo
 from ui.frame.host_list_frame import HostListFrame
-from common.base_component import BaseComponent
-from ui.widgets.main_widgets import MainWidgets
+from common.component import Component
+from ui.widgets.host_info_form_widgets import HostInfoFormWidgets
+from ui.dialogs.add_new_host_dialog import AddNewHostDialog
 
 
 class MainWindow(tk.Tk):
     def __init__(self):
         super().__init__()
         """ 初期化処理 """
-        class_name = self.__class__.__name__
-        # 各画面への通知用キューを画面IDに紐づけて生成
-        self.queues = {}
-        # ロガー生成
-        self.logger = Logger(tag=class_name).get_logger()
         # タイマー初期化
         self.buftime = time.time()
-        # 切断されたデバイス
-        self.disconnect_devices = set()
         # 状態確認スレッド制御用のフラグ
         self.isCheck = False
         # ロガーやconfigなど共通部を初期化
-        self.component = BaseComponent(class_name=self.__class__.__name__)
+        self.component = Component(class_name=self.__class__.__name__)
         # Pythonのコマンドを取得する。環境によって異なるためsetting.iniで管理。
         self.python_cmd = self.component.setting.get(section="Settings", key="python_cmd")
 
@@ -44,7 +41,7 @@ class MainWindow(tk.Tk):
         self.resizable(width=False, height=False)
 
         """ ウィジットの初期化 """
-        self.widgets = MainWidgets(master=self)
+        self.widgets = HostInfoFormWidgets(master=self)
         # ホスト一覧
         self.host_list_frame: HostListFrame = None
         self.remote_hosts_menu: tk.Menu = tk.Menu()
@@ -56,7 +53,7 @@ class MainWindow(tk.Tk):
         self.mac_addr: tk.Entry = tk.Entry()
 
         """ コントローラーの初期化 """
-        self.controller = MainController()
+        self.controller = MainController(master=self)
 
         """ 画面生成前に状態確認を行う """
         self.host_status_check(attempts=1)
@@ -80,10 +77,6 @@ class MainWindow(tk.Tk):
                                            "port": host_info.port, "user": host_info.user, "password": host_info.password,
                                            "mac_addr": host_info.mac_addr, "status": "offline"}
         return show_host_map
-
-    # 各画面へのデバイス切断通知
-    def notice_queues(self):
-        pass
 
     # 毎秒、ホストの状態を自動更新
     def time_event(self, interval=10, attempts=3, after_time=2000):
@@ -112,7 +105,7 @@ class MainWindow(tk.Tk):
                     # 削除時の更新処理はここを通る
                     pass
                 except Exception as e:
-                    self.logger.error(e)
+                    self.component.logger.error(e)
             self.show_host_map = new_show_host_map
 
         if not self.isCheck and not self.host_list_frame is None:
@@ -148,7 +141,7 @@ class MainWindow(tk.Tk):
                         if response.returncode == 0:
                             is_online = True
                     except Exception as e:
-                        self.logger.error(e)
+                        self.component.logger.error(e)
 
                 if is_online:
                     self.show_host_map[key]['status'] = "online"
@@ -159,17 +152,11 @@ class MainWindow(tk.Tk):
             if copy_show_host_map != self.show_host_map and not self.host_list_frame is None:
                 self.host_list_frame.update_devices(self.show_host_map)
         except Exception as e:
-            self.logger.error(e)
+            self.component.logger.error(e)
         finally:
             # フラグを戻して終了
             self.isCheck = False
             self.buftime = time.time()
-
-    """ サブ画面が閉じられた時のコールバック """
-    def close_callback(self, screen_id, device, ):
-        key = self.create_queues_key(screen_id, device)
-        # キューを削除
-        self.queues.pop(key)
 
     def wake_on_lan_callback(self, event):
         mac_addr = self.mac_addr.get()
@@ -179,29 +166,21 @@ class MainWindow(tk.Tk):
                 if self.controller.wake_on_lan(self.mac_addr.get()):
                     messagebox.showinfo("Success", "【" + mac_addr + "】" + "に起動要求を送信しました。", parent=self)
                 else:
-                    # デバイスが接続されていない場合
                     messagebox.showerror("Error", "【" + mac_addr + "】" + "への起動要求に失敗しました。", parent=self)
         else:
             messagebox.showerror("Error", "MACアドレスが入力されていません。", parent=self)
 
-    def save_callback(self, event):
-        name = self.host_name.get()
-        if len(name) > 0:
-            ret = messagebox.askokcancel("確認", "現在入力中のホスト情報を保存しますか？", parent=self)
-            if ret:
-                ip_addr = self.ip_addr.get()
-                port = self.port.get()
-                user = self.user_name.get()
-                pwd = self.password.get()
-                mac_addr = self.mac_addr.get()
-                if self.controller.host_info_save(name, ip_addr, port, user, pwd, mac_addr):
-                    messagebox.showinfo("Success", "保存しました。", parent=self)
-                    self.update_show_host_list()
-                else:
-                    messagebox.showerror("Error", "保存に失敗しました。", parent=self)
-        else:
-            # ホスト名が未入力の場合はエラーとする。
-            messagebox.showerror("Error", "ホスト名を入力してください。", parent=self)
+    def on_click_save(self, event):
+        host_info = HostInfo(
+            id=self.selected_id,
+            name=self.host_name.get(),
+            ip_addr=self.ip_addr.get(),
+            port=self.port.get(),
+            user=self.user_name.get(),
+            password=self.password.get(),
+            mac_addr=self.mac_addr.get(),
+        )
+        self.controller.update_host(self, host_info)
 
     def delete_callback(self, host_info):
         name = host_info['name']
@@ -223,7 +202,6 @@ class MainWindow(tk.Tk):
                 messagebox.showinfo("Success", "削除しました。", parent=self)
                 self.update_show_host_list()
             else:
-                # デバイスが接続されていない場合
                 messagebox.showerror("Error", "削除に失敗しました。", parent=self)
 
     def connect_callback(self, event):
@@ -239,6 +217,11 @@ class MainWindow(tk.Tk):
                 self.controller.ssh_connect(ip_addr, port, user, pwd)
         else:
             messagebox.showerror("Error", "IPアドレスが入力されていません。", parent=self)
+
+    def show_add_new_host_dialog_callback(self):
+        # 複数画面を許可しないのでkeyは空文字で指定
+        key = DialogKey(key="", dialog_id=dialog_ids.ADD_NEW_HOST_DIALOG)
+        dialog_manager.show_dialog(self, key, self.controller.create_add_new_host_dialog)
 
     def host_selected_callback(self, host_info):
         # 選択中アイテムIDを保持
@@ -288,6 +271,7 @@ class MainWindow(tk.Tk):
 
         self.host_list_frame.set_callback(process_type.SELECT, callback=self.host_selected_callback)
         self.host_list_frame.set_callback(process_type.DELETE, callback=self.delete_callback)
+        self.host_list_frame.set_callback(process_type.HOST_ADD, callback=self.show_add_new_host_dialog_callback)
 
         """ 詳細フォームの親となるサブフレーム """
         sub_frame = tk.Frame(self, bg=background_color, bd=0, relief="sunken")
@@ -375,7 +359,7 @@ class MainWindow(tk.Tk):
         self.ip_addr.grid(row=0, column=0, sticky="ew", ipady=4)
 
         # ポートを指定
-        self.port = self.widgets.port_entry(ip_port_frame, max_length=5)
+        self.port = self.widgets.port_entry(ip_port_frame, max_length=5, placeholder="port")
         self.port.grid(row=0, column=1, sticky="ew", padx=data_frame_pady, ipady=4)
 
         # ユーザー名を指定
@@ -397,8 +381,8 @@ class MainWindow(tk.Tk):
         button_frame.columnconfigure(1, weight=1)
         button_frame.columnconfigure(2, weight=1)
 
-        save_btn = tk.Button(button_frame, text="保存")
-        save_btn.bind("<Button-1>", self.save_callback)
+        save_btn = tk.Button(button_frame, text="上書き保存")
+        save_btn.bind("<Button-1>", self.on_click_save)
         save_btn.grid(row=0, column=0, sticky="nsew", padx=(0, 20))
 
         wake_on_lan_btn = tk.Button(button_frame, text="起動")

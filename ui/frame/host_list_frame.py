@@ -1,7 +1,7 @@
 import os
 import tkinter as tk
 from tkinter import PhotoImage
-from common.base_component import BaseComponent
+from common.component import Component
 from utils import process_type
 
 status_colors = {
@@ -20,7 +20,7 @@ class HostListFrame(tk.Frame):
         self.callbacks = {}
 
         # アイコン画像の入ったフォルダパスを取得
-        component = BaseComponent(class_name=self.__class__.__name__)
+        component = Component(class_name=self.__class__.__name__)
         img_path = component.config.IMG_PATH
 
         # アイコン画像の読み込み
@@ -173,4 +173,4 @@ class HostListFrame(tk.Frame):
         self.run_callback(process_type.DELETE, self.selected_host)
 
     def on_addition(self):
-        self.run_callback(process_type.HOST_ADD, self.selected_host)
+        self.run_callback(process_type.HOST_ADD)

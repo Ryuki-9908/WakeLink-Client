@@ -1,9 +1,9 @@
 import sqlite3
 from sqlite3 import OperationalError
-from common.base_component import BaseComponent
+from common.component import Component
 
 
-class SQLiteRepository(BaseComponent):
+class SQLiteRepository(Component):
     def __init__(self):
         super().__init__(class_name=self.__class__.__name__)
         # 設定ファイル読み込み
