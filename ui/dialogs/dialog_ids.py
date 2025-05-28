@@ -1,0 +1,2 @@
+""" ダイアログID """
+ADD_NEW_HOST_DIALOG = 1001

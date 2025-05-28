@@ -4,7 +4,7 @@ import logging
 LOG_FILE = ".\\Logs\\app.log"
 
 
-class Log:
+class Logger:
     def __init__(self, tag):
         self.logger = logging.getLogger(tag)
         if not self.logger.handlers:
