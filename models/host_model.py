@@ -9,12 +9,12 @@ class HostModel(BaseComponent):
         self.table_name = self.config.HOST_TABLE
         self.repository = SQLiteRepository()
 
-    def insert(self, host, ip_addr, user, password, mac_addr):
+    def insert(self, host, ip_addr, port, user, password, mac_addr):
         result = False
         try:
             """ホストを追加"""
-            query = "INSERT INTO {} (host, ip_addr, user, password, mac_addr ) VALUES (?, ?, ?, ?, ?)".format(self.table_name)
-            self.repository.execute_query(query, (host, ip_addr, user, password, mac_addr))
+            query = "INSERT INTO {} (host, ip_addr, port, user, password, mac_addr ) VALUES (?, ?, ?, ?, ?, ?)".format(self.table_name)
+            self.repository.execute_query(query, (host, ip_addr, port, user, password, mac_addr))
             result = True
         except Exception as e:
             self.logger.debug(e)
@@ -41,9 +41,10 @@ class HostModel(BaseComponent):
                 id=host[0],
                 name=host[1],
                 ip_addr=host[2],
-                user=host[3],
-                password=host[4],
-                mac_addr=host[5],
+                port=host[3],
+                user=host[4],
+                password=host[5],
+                mac_addr=host[6],
             )
             host_info_list.append(host_info)
         return host_info_list
@@ -54,6 +55,7 @@ class HostInfo:
     id: int
     name: str
     ip_addr: str
+    port: str
     user: str
     password: str
     mac_addr: str

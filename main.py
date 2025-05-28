@@ -1,8 +1,8 @@
-from ui import MainLayout
+from ui import MainWindow
 from db.sqlite_repository import SQLiteRepository
 
 
 if __name__ == "__main__":
     SQLiteRepository()
-    app = MainLayout()
+    app = MainWindow()
     app.mainloop()

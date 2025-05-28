@@ -10,8 +10,8 @@ class MainController(BaseComponent):
         super().__init__(class_name=self.__class__.__name__)
         self.host_model = HostModel()
 
-    def host_info_save(self, host, ip_addr, user, pwd, mac_addr):
-        return self.host_model.insert(host, ip_addr, user, pwd, mac_addr)
+    def host_info_save(self, host, ip_addr, port, user, pwd, mac_addr):
+        return self.host_model.insert(host, ip_addr, port, user, pwd, mac_addr)
 
     def host_info_delete(self, id):
         return self.host_model.delete(id)
@@ -27,7 +27,7 @@ class MainController(BaseComponent):
 
         return result
 
-    def ssh_connect(self, ip_addr, user, password, port="22"):
+    def ssh_connect(self, ip_addr, port, user, password):
         python = self.setting.get(section="Settings", key="python_cmd")
         file_path = self.config.SSH_TERMINAL_FILE
         options = ["--ip", ip_addr, "--port", port, "--user", user, "--pwd", password]
