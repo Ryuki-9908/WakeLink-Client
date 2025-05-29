@@ -1,12 +1,14 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True)
 class Config:
+    LOG_DIR = Path(os.getcwd()).joinpath("logs")
     DB_PATH: str = "./db/host.sqlite3"
     HOST_TABLE: str = "my_host"
-    IMG_PATH = os.path.join(os.getcwd(), "resources", "images")
-    SEND_PING_FILE = os.path.join(os.getcwd(), "utils", "send_ping.py")
-    SETTING_INI = os.path.join(os.getcwd(), "common", "setting.ini")
-    SSH_TERMINAL_FILE = os.path.join(os.getcwd(), "utils", "ssh_terminal.py")
+    IMG_PATH = Path(os.getcwd()).joinpath("resources", "images")
+    SEND_PING_FILE = Path(os.getcwd()).joinpath("utils", "send_ping.py")
+    SETTING_INI = Path(os.getcwd()).joinpath("common", "setting.ini")
+    SSH_TERMINAL_FILE = Path(os.getcwd()).joinpath("utils", "ssh_terminal.py")

@@ -8,3 +8,4 @@ class Component:
         self.config = Config()
         self.logger = Logger(class_name).get_logger()
         self.setting = Setting(self.config.SETTING_INI)
+        self.python_cmd = self.setting.get(section="Settings", key="python_cmd")

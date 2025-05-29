@@ -1,7 +1,8 @@
-import os
 import logging
+import datetime
+from logging.handlers import RotatingFileHandler
 
-LOG_FILE = ".\\Logs\\app.log"
+from common.config import Config
 
 
 class Logger:
@@ -9,6 +10,7 @@ class Logger:
         self.logger = logging.getLogger(tag)
         if not self.logger.handlers:
             self.logger.setLevel(logging.DEBUG)
+            self.logger.propagate = False
             # コンソールハンドラー
             console_handler = logging.StreamHandler()
             console_handler.setLevel(logging.DEBUG)
@@ -17,13 +19,11 @@ class Logger:
             )
             console_handler.setFormatter(console_formatter)
 
-            # ログファイルのディレクトリが存在しない場合は作成
-            log_dir = os.path.dirname(LOG_FILE)
-            if log_dir and not os.path.exists(log_dir):
-                os.makedirs(log_dir)
+            # ログファイル生成
+            log_file = self.create_log_file()
 
             # ファイルハンドラー
-            file_handler = logging.FileHandler(LOG_FILE)
+            file_handler = RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=5)
             file_handler.setLevel(logging.INFO)
             file_formatter = logging.Formatter(
                 "%(asctime)s - %(levelname)s - %(message)s - %(filename)s - %(funcName)s"
@@ -34,14 +34,13 @@ class Logger:
             self.logger.addHandler(console_handler)
             self.logger.addHandler(file_handler)
 
-    # def info(self, class_name):
-    #     return
-    #
-    # def debug(self, class_name):
-    #     return
-    #
-    # def error(self, class_name):
-    #     return
+    def create_log_file(self):
+        # ログファイルのディレクトリが存在しない場合は作成
+        Config.LOG_DIR.mkdir(exist_ok=True)
+
+        today = datetime.date.today().isoformat()
+        log_file = Config.LOG_DIR.joinpath(f"{today}.log")
+        return log_file
 
     def get_logger(self):
         return self.logger

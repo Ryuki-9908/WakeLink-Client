@@ -3,14 +3,20 @@ import tkinter as tk
 from models.host_model import HostInfo
 from ui.dialogs.base_dialog import BaseDialog
 from ui.widgets import HostInfoFormWidgets
-from utils import colors
+from utils import colors, process_type
+from controller.dialogs.new_host_dialog_controller import NewHostDialogController
 
 
-class AddNewHostDialog(BaseDialog):
-    def __init__(self, dialog, save_callback):
+class NewHostDialog(BaseDialog):
+    def __init__(self, dialog, update_show_hosts_callback):
         super().__init__(dialog, class_name=self.__class__.__name__)
+        self.dialog = dialog
         self.widgets = HostInfoFormWidgets(master=self)
-        self.save_callback = save_callback
+
+        # 処理を制御するコントローラ―を初期化
+        self.controller = NewHostDialogController(self)
+        # 表示ホスト更新用コールバックをセット
+        self.controller.set_callback(process=process_type.SHOW_HOST_UPDATE, callback=update_show_hosts_callback)
 
         # 入力情報
         self.host_name: tk.Entry = tk.Entry()
@@ -19,11 +25,14 @@ class AddNewHostDialog(BaseDialog):
         self.user_name: tk.Entry = tk.Entry()
         self.password: tk.Entry = tk.Entry()
         self.mac_addr: tk.Entry = tk.Entry()
+
         # 画面生成
         self.create_view()
 
+    """ 新規追加するホスト情報を保存 """
     def save_new_host(self, event):
-        """現在のパスを設定ファイルに保存する"""
+        # 入力データをまとめる
+        # DBから取得したものではないので、エラー回避のためにID=0を指定
         host_info = HostInfo(
             id=0,
             name=self.host_name.get(),
@@ -33,7 +42,9 @@ class AddNewHostDialog(BaseDialog):
             password=self.password.get(),
             mac_addr=self.mac_addr.get(),
         )
-        self.save_callback(parent=self, host_info=host_info)
+        # ホストを保存
+        self.controller.save_host(host_info=host_info)
+        # 保存後はダイアログを終了
         self.destroy()
 
     def create_view(self):
@@ -66,7 +77,7 @@ class AddNewHostDialog(BaseDialog):
         host_info_frame.columnconfigure(1, weight=1)
         host_info_frame.rowconfigure(0, weight=1)
 
-        # データ領域
+        """ ホスト情報入力フォーム """
         info_frame = tk.Frame(host_info_frame, bg=background_color, bd=0, relief="sunken")
         info_frame.grid(row=0, column=1, sticky="nsew", padx=0, pady=5)
         info_frame.columnconfigure(0, weight=1)
@@ -76,34 +87,20 @@ class AddNewHostDialog(BaseDialog):
         info_frame.rowconfigure(3, weight=1)
         info_frame.rowconfigure(4, weight=1)
 
-        # Grid配置インクリメント関数定義
-        self.row_increment = 0
-
-        def grid_row_increment(increment=True, reset=False):
-            if reset:
-                self.row_increment = 0
-            else:
-                if increment:
-                    self.row_increment = self.row_increment + 1
-            return self.row_increment
-
-        """ ラベル領域 """
-        label_frame_pady = (25, 0)
-        data_frame_pady = (10, 0)
-        # ホスト名
+        frame_padx = (10, 0)
+        """ ホスト名 """
         name_frame = tk.Frame(info_frame, bg=background_color, bd=0, relief="sunken")
-        name_frame.grid(row=0, column=0, sticky="nsew", padx=(10, 0))
+        name_frame.grid(row=0, column=0, sticky="nsew", padx=frame_padx)
         name_frame.columnconfigure(0, weight=0)
         name_frame.columnconfigure(1, weight=1)
         name_frame.rowconfigure(0, weight=1)
 
         host_name_label = tk.Label(name_frame, text="ホスト名", bg=background_color, width=10, anchor="w")
         host_name_label.grid(row=0, column=0, sticky="w")
-        # ホスト名またはIPアドレスを指定
         self.host_name = tk.Entry(name_frame, font=("MSゴシック", "10", "bold"))
         self.host_name.grid(row=0, column=1, sticky="ew", ipady=4)
 
-        # IP / Port入力領域
+        """ IP / Port """
         ip_port_frame = tk.Frame(info_frame, bg=background_color, bd=0, relief="sunken")
         ip_port_frame.grid(row=1, column=0, sticky="nsew")
         ip_port_frame.columnconfigure(0, weight=1)
@@ -112,7 +109,7 @@ class AddNewHostDialog(BaseDialog):
 
         # IPアドレス
         ip_addr_frame = tk.Frame(ip_port_frame, bg=background_color, bd=0, relief="sunken")
-        ip_addr_frame.grid(row=0, column=0, sticky="nsew", padx=(10, 0))
+        ip_addr_frame.grid(row=0, column=0, sticky="nsew", padx=frame_padx)
         ip_addr_frame.columnconfigure(0, weight=0)
         ip_addr_frame.columnconfigure(1, weight=1)
         ip_addr_frame.rowconfigure(0, weight=1)
@@ -130,13 +127,13 @@ class AddNewHostDialog(BaseDialog):
         port_frame.rowconfigure(0, weight=1)
 
         port_label = tk.Label(port_frame, text="ポート番号", bg=background_color, width=8, anchor="w")
-        port_label.grid(row=0, column=0, sticky="w", padx=(10, 0))
+        port_label.grid(row=0, column=0, sticky="w", padx=frame_padx)
         self.port = self.widgets.port_entry(port_frame, max_length=5, placeholder="22")
         self.port.grid(row=0, column=1, sticky="ew", padx=(5, 0), ipady=4)
 
-        # ユーザー名
+        """ ユーザー名 """
         user_frame = tk.Frame(info_frame, bg=background_color, bd=0, relief="sunken")
-        user_frame.grid(row=2, column=0, sticky="nsew", padx=(10, 0))
+        user_frame.grid(row=2, column=0, sticky="nsew", padx=frame_padx)
         user_frame.columnconfigure(0, weight=0)
         user_frame.columnconfigure(1, weight=1)
         user_frame.rowconfigure(0, weight=1)
@@ -146,9 +143,9 @@ class AddNewHostDialog(BaseDialog):
         self.user_name = tk.Entry(user_frame, font=("MSゴシック", "10", "bold"))
         self.user_name.grid(row=0, column=1, sticky="ew", ipady=4)
 
-        # パスワード
+        """ パスワード """
         password_frame = tk.Frame(info_frame, bg=background_color, bd=0, relief="sunken")
-        password_frame.grid(row=3, column=0, sticky="nsew", padx=(10, 0))
+        password_frame.grid(row=3, column=0, sticky="nsew", padx=frame_padx)
         password_frame.columnconfigure(0, weight=0)
         password_frame.columnconfigure(1, weight=1)
         password_frame.rowconfigure(0, weight=1)
@@ -158,9 +155,9 @@ class AddNewHostDialog(BaseDialog):
         self.password = tk.Entry(password_frame, font=("MSゴシック", "10", "bold"), show="*")
         self.password.grid(row=0, column=1, sticky="ew", ipady=4)
 
-        # MACアドレス
+        """ MACアドレス """
         mac_addr_frame = tk.Frame(info_frame, bg=background_color, bd=0, relief="sunken")
-        mac_addr_frame.grid(row=4, column=0, sticky="nsew", padx=(10, 0))
+        mac_addr_frame.grid(row=4, column=0, sticky="nsew", padx=frame_padx)
         mac_addr_frame.columnconfigure(0, weight=0)
         mac_addr_frame.columnconfigure(1, weight=1)
         mac_addr_frame.rowconfigure(0, weight=1)
@@ -170,9 +167,9 @@ class AddNewHostDialog(BaseDialog):
         self.mac_addr = tk.Entry(mac_addr_frame, font=("MSゴシック", "10", "bold"))
         self.mac_addr.grid(row=0, column=1, sticky="ew", ipady=4)
 
-        # ボタン表示領域
+        """ ボタン表示 """
         button_frame = tk.Frame(frame, bg=background_color, bd=0, relief="sunken")
-        button_frame.grid(row=2, column=0, sticky="nsew", padx=(10, 0), pady=(20, 10))
+        button_frame.grid(row=2, column=0, sticky="nsew", padx=frame_padx, pady=(20, 10))
         button_frame.columnconfigure(0, weight=1)
 
         save_btn = tk.Button(button_frame, text="保存")
