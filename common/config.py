@@ -9,6 +9,6 @@ class Config:
     DB_PATH: str = "./db/host.sqlite3"
     HOST_TABLE: str = "my_host"
     IMG_PATH = Path(os.getcwd()).joinpath("resources", "images")
-    SEND_PING_FILE = Path(os.getcwd()).joinpath("utils", "send_ping.py")
+    SEND_PING_FILE = Path(os.getcwd()).joinpath("utils", "scan.py")
     SETTING_INI = Path(os.getcwd()).joinpath("common", "setting.ini")
     SSH_TERMINAL_FILE = Path(os.getcwd()).joinpath("utils", "ssh_terminal.py")

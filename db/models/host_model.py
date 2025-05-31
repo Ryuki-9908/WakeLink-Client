@@ -1,5 +1,5 @@
 from db.sqlite_repository import SQLiteRepository
-from common.component import Component
+from common.context import Context
 from dataclasses import dataclass
 
 
@@ -14,10 +14,11 @@ class HostInfo:
     mac_addr: str
 
 
-class HostModel(Component):
+class HostModel:
     def __init__(self):
-        super().__init__(class_name=self.__class__.__name__)
-        self.table_name = self.config.HOST_TABLE
+        context = Context(class_name=self.__class__.__name__)
+        self.logger = context.logger
+        self.table_name = context.config.HOST_TABLE
         self.repository = SQLiteRepository()
 
     def insert(self, host, ip_addr, port, user, password, mac_addr):

@@ -1,16 +1,21 @@
 import copy
 import subprocess
 import threading
-from common.component import Component
+from common.context import Context
 import time
 
 
-class HostMonitor(Component):
+class HostMonitor:
     def __init__(self, master, update_ui_callback):
-        super().__init__(self.__class__.__name__)
         self.master = master
         self.update_ui_callback = update_ui_callback
         self._stop_event = threading.Event()
+
+        context = Context(class_name=self.__class__.__name__)
+        self.logger = context.logger
+        self.python_cmd = context.setting.get(section="Settings", key="python_cmd")
+        self.scan_python = context.config.SEND_PING_FILE
+
         # タイマー初期化
         self.buf_time = time.time()
         # 状態確認スレッド制御用のフラグ
@@ -61,7 +66,7 @@ class HostMonitor(Component):
 
                         # 死活監視
                         response = subprocess.run(
-                            [self.python_cmd, self.config.SEND_PING_FILE, "--ip", host['ip_addr'], "--port", ssh_port],
+                            [self.python_cmd, self.scan_python, "--ip", host['ip_addr'], "--port", ssh_port],
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
                         )
                         if response.returncode == 0:

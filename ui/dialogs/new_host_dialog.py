@@ -1,6 +1,6 @@
 import tkinter as tk
 
-from models.host_model import HostInfo
+from db.models.host_model import HostInfo
 from ui.dialogs.base_dialog import BaseDialog
 from ui.widgets import HostInfoFormWidgets
 from utils import colors, process_type

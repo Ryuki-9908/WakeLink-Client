@@ -1,15 +1,16 @@
 from tkinter import messagebox
-from common.component import Component
-from models.host_model import HostModel, HostInfo
+from common.context import Context
+from db.models.host_model import HostModel, HostInfo
 from utils import process_type
 
 
-class NewHostDialogController(Component):
+class NewHostDialogController:
     def __init__(self, master):
-        super().__init__(class_name=self.__class__.__name__)
         self.master = master
         self.host_model = HostModel()
         self.callbacks = {}
+        context = Context(class_name=self.__class__.__name__)
+        self.logger = context.logger
 
     """ ホスト保存処理 """
     def save_host(self, host_info: HostInfo):

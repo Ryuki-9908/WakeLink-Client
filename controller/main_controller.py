@@ -1,22 +1,21 @@
-import copy
 import platform
 import shlex
 import subprocess
-
 from tkinter import messagebox
 from wakeonlan import send_magic_packet
-from common.component import Component
-from models.host_model import HostModel, HostInfo
+from common.context import Context
+from db.models.host_model import HostModel, HostInfo
 from ui.dialogs import dialog_ids
 from ui.dialogs.dialog_manager import dialog_manager, DialogKey
 from ui.dialogs.new_host_dialog import NewHostDialog
 
 
-class MainController(Component):
+class MainController:
     def __init__(self, master):
-        super().__init__(class_name=self.__class__.__name__)
         self.master = master
         self.host_model = HostModel()
+        context = Context(class_name=self.__class__.__name__)
+        self.logger = context.logger
 
     """ 既存のホスト情報を更新 """
     def update_host(self, host_info: HostInfo):

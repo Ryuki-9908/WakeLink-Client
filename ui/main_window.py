@@ -1,14 +1,9 @@
-import copy
-import subprocess
-import threading
 import tkinter as tk
-import time
-
 from utils import colors, process_type
 from controller.main_controller import MainController
-from models.host_model import HostModel, HostInfo
+from db.models.host_model import HostModel, HostInfo
 from ui.frame.host_list_frame import HostListFrame
-from common.component import Component
+from common.context import Context
 from ui.widgets.host_info_form_widgets import HostInfoFormWidgets
 from service.host_monitor import HostMonitor
 
@@ -17,12 +12,8 @@ class MainWindow(tk.Tk):
     def __init__(self):
         super().__init__()
         """ 初期化処理 """
-        # タイマー初期化
-        self.buftime = time.time()
-        # 状態確認スレッド制御用のフラグ
-        self.isCheck = False
         # ロガーやconfigなど共通部を初期化
-        self.component = Component(class_name=self.__class__.__name__)
+        self.context = Context(class_name=self.__class__.__name__)
 
         """ コントローラーの初期化 """
         self.controller = MainController(master=self)
@@ -52,12 +43,12 @@ class MainWindow(tk.Tk):
         self.mac_addr: tk.Entry = tk.Entry()
 
         """ メイン画面生成 """
-        self.create_main()
+        self.create_view()
 
         """ 選択中アイテムのID """
         self.selected_id = 0
 
-        """ 画面生成前に状態確認を行う """
+        """ 初回の確認と監視サービスの開始 """
         monitor_service.check_host_status(attempts=1)
         monitor_service.start()
 
@@ -133,7 +124,7 @@ class MainWindow(tk.Tk):
         self.mac_addr.delete(0, tk.END)
 
     """ メイン画面表示 """
-    def create_main(self):
+    def create_view(self):
         # 背景色
         background_color = colors.BACKGROUND_COLOR
 
