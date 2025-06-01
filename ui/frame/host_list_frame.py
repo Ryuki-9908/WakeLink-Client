@@ -154,7 +154,7 @@ class HostListFrame(tk.Frame):
                     w.configure(bg="white")
         self.selected_frame = None
 
-    def update_hosts(self, new_show_host_map):
+    def update_show_hosts(self, new_show_host_map: dict):
         """外部から呼び出してホスト一覧を更新"""
         self.host_map = new_show_host_map
         self.render_devices(new_show_host_map)
