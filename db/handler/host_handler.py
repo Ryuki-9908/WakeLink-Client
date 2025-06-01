@@ -1,7 +1,7 @@
 from common.context import Context
 from db.dao.host_dao import HostDao
-from db.sqlite_manager import SQLiteManager
 from db.models.host_model import HostInfo
+from crypto.fernet_cipher import FernetCipher
 
 
 class HostHandler:
@@ -9,26 +9,29 @@ class HostHandler:
         self.dao = HostDao()
         self.table_name = self.dao.table_name
         self.logger = Context(class_name=self.__class__.__name__).logger
+        self.cipher = FernetCipher()
 
     def save_host(self, host_info: HostInfo):
         """ホストを追加"""
         query = f"""
-            INSERT INTO {self.table_name} (host, ip_addr, port, user, password, mac_addr ) 
+            INSERT INTO {self.table_name} (host, ip_addr, port, user, password, mac_addr) 
             VALUES (?, ?, ?, ?, ?, ?)
         """
+        # パスワードは暗号化して保存
+        password = self.cipher.encrypt_data(host_info.password)
         params = (
             host_info.name,
             host_info.ip_addr,
             host_info.port,
             host_info.user,
-            host_info.password,
+            password,
             host_info.mac_addr
         )
         result = False
         if self.dao.insert(query, params):
             result = True
             self.logger.debug("save host success.")
-            self.logger.debug(host_info)
+            self.logger.debug(params)
         else:
             self.logger.debug("save host failed.")
 
@@ -55,7 +58,7 @@ class HostHandler:
             ip_addr=hosts[2],
             port=hosts[3],
             user=hosts[4],
-            password=hosts[5],
+            password=self.cipher.decrypt_data(hosts[5]),
             mac_addr=hosts[6],
         )
         return host_info
@@ -76,7 +79,7 @@ class HostHandler:
                 ip_addr=host[2],
                 port=host[3],
                 user=host[4],
-                password=host[5],
+                password=self.cipher.decrypt_data(host[5]),
                 mac_addr=host[6],
             )
             host_info_list.append(host_info)
@@ -88,12 +91,14 @@ class HostHandler:
             SET host = ?, ip_addr = ?, port = ?, user = ?, password = ?, mac_addr = ?
             WHERE id = ?
         """
+        # パスワードは暗号化して保存
+        password = self.cipher.encrypt_data(host_info.password)
         params = (
             host_info.name,
             host_info.ip_addr,
             host_info.port,
             host_info.user,
-            host_info.password,
+            password,
             host_info.mac_addr,
             host_info.id
         )
@@ -101,7 +106,7 @@ class HostHandler:
         if self.dao.update(query, params):
             result = True
             self.logger.debug("update host success.")
-            self.logger.debug(f"after host: {host_info}")
+            self.logger.debug(f"after host: {params}")
         else:
             self.logger.debug("update host failed.")
 

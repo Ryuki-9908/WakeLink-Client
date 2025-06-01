@@ -12,3 +12,5 @@ class Config:
     SEND_PING_FILE = Path(os.getcwd()).joinpath("utils", "scan.py")
     SETTING_INI = Path(os.getcwd()).joinpath("common", "setting.ini")
     SSH_TERMINAL_FILE = Path(os.getcwd()).joinpath("utils", "ssh_terminal.py")
+    ENCRYPT_KEY_PATH = Path.home().joinpath(".WakeLink-Client", "keyfile")
+    ENCRYPT_KEY_FILE = "master_encrypt.key"

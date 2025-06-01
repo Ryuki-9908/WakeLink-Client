@@ -17,6 +17,8 @@ class MainController:
         self.host_handler = HostHandler()
         context = Context(class_name=self.__class__.__name__)
         self.logger = context.logger
+        self.setting = context.setting
+        self.config = context.config
 
     """ 既存のホスト情報を更新 """
     def update_host(self, host_info: HostInfo):
@@ -66,10 +68,9 @@ class MainController:
                     self.logger.error(e)
             self.master.show_host_map = new_show_host_map
 
-        # if not self.master.monitor_service.isCheck and not self.master.host_list_frame is None:
         if not self.master.host_list_frame is None:
             # 状態確認を行う
-            self.master.host_list_frame.update_hosts(self.master.show_host_map)
+            self.master.host_list_frame.update_show_hosts(self.master.show_host_map)
 
     """ WOL送信処理 """
     def wake_on_lan(self, mac_addr):
