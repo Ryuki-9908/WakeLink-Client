@@ -1,7 +1,8 @@
 import tkinter as tk
 from utils import colors, process_type
 from controller.main_controller import MainController
-from db.models.host_model import HostModel, HostInfo
+from db.models.host_model import HostInfo
+from db.handler.host_handler import HostHandler
 from ui.frame.host_list_frame import HostListFrame
 from common.context import Context
 from ui.widgets.host_info_form_widgets import HostInfoFormWidgets
@@ -19,11 +20,11 @@ class MainWindow(tk.Tk):
         self.controller = MainController(master=self)
 
         """ 保存されたホスト一覧をすべて取得 """
-        self.host_model = HostModel()
-        self.show_host_map = self.controller.create_show_host_list(self.host_model.get_all_host())
+        self.host_handler = HostHandler()
+        self.show_host_map = self.controller.create_show_host_list(self.host_handler.get_all_host())
 
         """ 死活監視サービスの初期化 """
-        monitor_service = HostMonitor(self, self.update_show_hosts)
+        self.monitor_service = HostMonitor(self, self.update_show_hosts)
 
         """ GUI生成 """
         self.title("WakeLink Client")
@@ -49,12 +50,12 @@ class MainWindow(tk.Tk):
         self.selected_id = 0
 
         """ 初回の確認と監視サービスの開始 """
-        monitor_service.check_host_status(attempts=1)
-        monitor_service.start()
+        self.monitor_service.check_host_status(attempts=1)
+        self.monitor_service.start()
 
     def update_show_hosts(self, updated_map):
         for key, new_data in updated_map.items():
-            self.show_host_map[key].update(new_data)
+            self.show_host_map[key].update_host(new_data)
         self.host_list_frame.update_hosts(self.show_host_map)
 
     def on_wake_on_lan_clicked(self, event):
@@ -64,13 +65,13 @@ class MainWindow(tk.Tk):
     def on_click_save(self, event):
         # 選択中のホスト情報をまとめる
         host_info = HostInfo(
-            id=self.master.selected_id,
-            name=self.master.host_name.get(),
-            ip_addr=self.master.ip_addr.get(),
-            port=self.master.port.get(),
-            user=self.master.user_name.get(),
-            password=self.master.password.get(),
-            mac_addr=self.master.mac_addr.get(),
+            id=self.selected_id,
+            name=self.host_name.get(),
+            ip_addr=self.ip_addr.get(),
+            port=self.port.get(),
+            user=self.user_name.get(),
+            password=self.password.get(),
+            mac_addr=self.mac_addr.get(),
         )
         # データベース更新
         self.controller.update_host(host_info)
@@ -97,6 +98,7 @@ class MainWindow(tk.Tk):
     def host_selected_callback(self, host_info):
         # 選択中アイテムIDを保持
         self.selected_id = host_info['id']
+        print(self.selected_id)
 
         # フィールドクリア処理
         self.host_name.delete(0, tk.END)

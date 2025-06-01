@@ -3,7 +3,7 @@ from sqlite3 import OperationalError
 from common.context import Context
 
 
-class SQLiteRepository:
+class SQLiteManager:
     def __init__(self):
         context = Context(class_name=self.__class__.__name__)
         self.logger = context.logger
