@@ -4,7 +4,8 @@ import subprocess
 from tkinter import messagebox
 from wakeonlan import send_magic_packet
 from common.context import Context
-from db.models.host_model import HostModel, HostInfo
+from db.models.host_model import HostInfo
+from db.handler.host_handler import HostHandler
 from ui.dialogs import dialog_ids
 from ui.dialogs.dialog_manager import dialog_manager, DialogKey
 from ui.dialogs.new_host_dialog import NewHostDialog
@@ -13,7 +14,7 @@ from ui.dialogs.new_host_dialog import NewHostDialog
 class MainController:
     def __init__(self, master):
         self.master = master
-        self.host_model = HostModel()
+        self.host_handler = HostHandler()
         context = Context(class_name=self.__class__.__name__)
         self.logger = context.logger
 
@@ -23,7 +24,7 @@ class MainController:
         if len(name) > 0:
             ret = messagebox.askokcancel("確認", "ホスト情報を上書きしますか？", parent=self.master)
             if ret:
-                if self.host_model.update(host_info):
+                if self.host_handler.update_host(host_info):
                     messagebox.showinfo("Success", "保存しました。", parent=self.master)
                     self.update_show_hosts()
                 else:
@@ -35,7 +36,7 @@ class MainController:
     """ 登録済みホスト削除処理 """
     def delete_host(self, host_id):
         self.master.clear_field()
-        return self.host_model.delete(host_id)
+        return self.host_handler.delete_host(host_id)
 
     """ 表示用ホストリスト生成処理 """
     def create_show_host_list(self, host_info_list: list[HostInfo]) -> dict:
@@ -51,7 +52,7 @@ class MainController:
     """ 表示リストの更新を行う """
     def update_show_hosts(self):
         # 前回DBから取得したデータと現在DBに保存されているデータを比較してリストを更新
-        new_show_host_map = self.create_show_host_list(self.host_model.get_all_host())
+        new_show_host_map = self.create_show_host_list(self.host_handler.get_all_host())
 
         # 差分が無ければ更新しない
         if new_show_host_map != self.master.show_host_map:
@@ -65,7 +66,8 @@ class MainController:
                     self.logger.error(e)
             self.master.show_host_map = new_show_host_map
 
-        if not self.master.isCheck and not self.master.host_list_frame is None:
+        # if not self.master.monitor_service.isCheck and not self.master.host_list_frame is None:
+        if not self.master.host_list_frame is None:
             # 状態確認を行う
             self.master.host_list_frame.update_hosts(self.master.show_host_map)
 
@@ -84,10 +86,11 @@ class MainController:
 
         if len(mac_addr) > 0:
             ret = messagebox.askokcancel("確認", f"【{mac_addr}】を起動します。よろしいですか？", parent=self.master)
-            if ret and send():
-                messagebox.showinfo("Success", f"【{mac_addr}】に起動要求を送信しました。", parent=self.master)
-            else:
-                messagebox.showerror("Error", f"【{mac_addr}】への起動要求に失敗しました。", parent=self.master)
+            if ret:
+                if send():
+                    messagebox.showinfo("Success", f"【{mac_addr}】に起動要求を送信しました。", parent=self.master)
+                else:
+                    messagebox.showerror("Error", f"【{mac_addr}】への起動要求に失敗しました。", parent=self.master)
         else:
             messagebox.showerror("Error", "MACアドレスが入力されていません。", parent=self.master)
 
@@ -142,11 +145,12 @@ class MainController:
             message = f"{name}({ip_addr})を削除しますか？"
 
         ret = messagebox.askokcancel("確認", message, parent=self.master)
-        if ret and self.delete_host(host_info["id"]):
-            messagebox.showinfo("Success", "削除しました。", parent=self.master)
-            self.update_show_hosts()
-        else:
-            messagebox.showerror("Error", "削除に失敗しました。", parent=self.master)
+        if ret:
+            if self.delete_host(host_info["id"]):
+                messagebox.showinfo("Success", "削除しました。", parent=self.master)
+                self.update_show_hosts()
+            else:
+                messagebox.showerror("Error", "削除に失敗しました。", parent=self.master)
 
     def show_add_new_host_dialog(self):
         def show_dialog(parent):

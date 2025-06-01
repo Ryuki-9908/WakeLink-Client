@@ -1,13 +1,14 @@
 from tkinter import messagebox
 from common.context import Context
-from db.models.host_model import HostModel, HostInfo
+from db.models.host_model import HostInfo
+from db.handler.host_handler import HostHandler
 from utils import process_type
 
 
 class NewHostDialogController:
     def __init__(self, master):
         self.master = master
-        self.host_model = HostModel()
+        self.host_handler = HostHandler()
         self.callbacks = {}
         context = Context(class_name=self.__class__.__name__)
         self.logger = context.logger
@@ -18,12 +19,7 @@ class NewHostDialogController:
         if len(name) > 0:
             ret = messagebox.askokcancel("確認", "現在入力中のホスト情報を保存しますか？", parent=self.master)
             if ret:
-                ip_addr = host_info.ip_addr
-                port = host_info.port
-                user = host_info.user
-                pwd = host_info.password
-                mac_addr = host_info.mac_addr
-                if self.host_model.insert(name, ip_addr, port, user, pwd, mac_addr):
+                if self.host_handler.save_host(host_info):
                     messagebox.showinfo("Success", "保存しました。", parent=self.master)
                     self.on_update_show_hosts()
                 else:
