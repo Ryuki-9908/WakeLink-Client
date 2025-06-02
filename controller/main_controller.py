@@ -116,9 +116,9 @@ class MainController:
             elif platform.system() == "Linux":
                 # Linuxの場合
                 # xtermを使うため（sudo apt install xtermでインストール必須）
-                python_cmd = ''.join([
+                python_cmd = ' '.join([
                     shlex.quote(python),
-                    shlex.quote(file_path),
+                    shlex.quote(str(file_path)),
                     "--ip", shlex.quote(ip_addr),
                     "--port", shlex.quote(port),
                     "--user", shlex.quote(user),
