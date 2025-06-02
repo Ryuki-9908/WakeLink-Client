@@ -1,7 +1,7 @@
 import os
 import tkinter as tk
 from tkinter import PhotoImage
-from common.component import Component
+from common.context import Context
 from utils import process_type
 
 status_colors = {
@@ -20,7 +20,7 @@ class HostListFrame(tk.Frame):
         self.callbacks = {}
 
         # アイコン画像の入ったフォルダパスを取得
-        component = Component(class_name=self.__class__.__name__)
+        component = Context(class_name=self.__class__.__name__)
         img_path = component.config.IMG_PATH
 
         # アイコン画像の読み込み
@@ -34,8 +34,8 @@ class HostListFrame(tk.Frame):
         header_label = tk.Label(header_frame, text="ホスト一覧", font=("メイリオ", 12, "bold"))
         header_label.pack(side="left")
 
-        delete_button = tk.Button(header_frame, text="＋ 新規追加", command=self.on_addition, font=("メイリオ", 10))
-        delete_button.pack(side="right")
+        add_new_button = tk.Button(header_frame, text="＋ 新規追加", command=self.on_addition, font=("メイリオ", 10))
+        add_new_button.pack(side="right")
         self.context_menu = tk.Menu(self, tearoff=0)
         self.context_menu.add_command(label="削除", command=self.on_right_click_delete)
 
@@ -154,7 +154,7 @@ class HostListFrame(tk.Frame):
                     w.configure(bg="white")
         self.selected_frame = None
 
-    def update_devices(self, new_show_host_map):
+    def update_show_hosts(self, new_show_host_map: dict):
         """外部から呼び出してホスト一覧を更新"""
         self.host_map = new_show_host_map
         self.render_devices(new_show_host_map)

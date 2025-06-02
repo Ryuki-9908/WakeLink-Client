@@ -34,7 +34,6 @@ WakeLink Client は、自宅に複数台のPCやサーバーを設置する中�
 - テーマ・配色選択（カスタマイズ性の向上）  
 - マイグレーション対応（アップデートでの設定維持）  
 - テスト／ドキュメントの整備  
-- ホスト情報パスワードの暗号化  
 
 ---
 
@@ -42,7 +41,8 @@ WakeLink Client は、自宅に複数台のPCやサーバーを設置する中�
 
 - Python / Tkinter  
 - wakeonlan, paramiko  
-- SQLite3（ローカルデータベース）  
+- SQLite3（ローカルデータベース）
+- cryptography（暗号化ライブラリ、Fernet利用）
 - INI設定ファイル（configparser）  
 
 ---
@@ -64,7 +64,7 @@ cd WakeLink-Client
 
 ```bash
 python -m venv venv
-.env\Scriptsctivate
+.venv\Scripts\activate
 ```
 
 **macOS / Linux:**
@@ -93,14 +93,29 @@ python main.py
 ```
 WakeLink-Client/
 ├── main.py              # アプリの起動スクリプト
-├── requirements.txt     # 依存ライブラリ
-├── common/              # 共通処理（設定・ログなど）
-├── controller/          # アプリ制御ロジック
-├── db/                  # データベース関連
-├── models/              # モデル定義
-├── ui/                  # UI構築（Tkinterベース）
-├── utils/               # 補助的なユーティリティ
-├── resources/           # 画像などの静的リソース    
+├── requirements.txt     # 依存ライブラリ一覧
+├── setting.ini          # アプリケーション設定ファイル
+├── common/              # 共通処理（設定管理・ロギングなど）
+│   ├── context.py
+│   ├── config.py
+│   └── logger.py
+├── controller/          # UI操作系の制御ロジック
+│   └── dialogs/         # 各種Tkinterダイアログコントローラ
+├── crypto/              # 暗号化/復号化の処理（鍵管理含む）
+│   ├── fernet_cipher.py
+│   ├── key_manager.py
+│   └── __init__.py
+├── db/                  # DBアクセス関連（DAO・マネージャ）
+│   ├── dao/
+│   ├── handler/
+│   ├── models/
+│   └── sqlite_manager.py
+├── service/             # バックグラウンド処理や監視系のサービス層
+├── ui/                  # UI構築（Tkinterウィジェット等）
+│   └── widgets/
+├── utils/               # 補助関数・定数など汎用ユーティリティ
+├── resources/           # 画像・アイコンなどの静的リソース
+└── .WakeLink-Client/    # ユーザー環境設定（鍵ファイル保存先など、実行後生成）
 ```
 
 ---

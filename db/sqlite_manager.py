@@ -1,13 +1,15 @@
 import sqlite3
 from sqlite3 import OperationalError
-from common.component import Component
+from common.context import Context
 
 
-class SQLiteRepository(Component):
+class SQLiteManager:
     def __init__(self):
-        super().__init__(class_name=self.__class__.__name__)
+        context = Context(class_name=self.__class__.__name__)
+        self.logger = context.logger
+
         # 設定ファイル読み込み
-        db_path = self.config.DB_PATH
+        db_path = context.config.DB_PATH
         self.db_path = db_path
         self.conn = None
         self.create()
@@ -48,4 +50,4 @@ class SQLiteRepository(Component):
             except OperationalError as e:
                 pass
             except Exception as e:
-                print(e)
+                self.logger.error(e)
