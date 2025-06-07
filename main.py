@@ -13,7 +13,7 @@ if __name__ == "__main__":
     # 暗号鍵生成
     KeyManager().gen_fernet_key()
     # DBの確認および生成
-    SQLiteManager()
+    SQLiteManager().migration()
     # メイン画面
     app = MainWindow()
     app.mainloop()
