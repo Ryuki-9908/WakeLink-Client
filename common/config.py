@@ -7,6 +7,7 @@ from pathlib import Path
 class Config:
     LOG_DIR = Path(os.getcwd()).joinpath("logs")
     DB_PATH: str = "./db/host.sqlite3"
+    DB_MIGRATIONS_PATH = Path(os.getcwd()).joinpath("db", "migrations")
     HOST_TABLE: str = "my_host"
     IMG_PATH = Path(os.getcwd()).joinpath("resources", "images")
     SEND_PING_FILE = Path(os.getcwd()).joinpath("utils", "scan.py")

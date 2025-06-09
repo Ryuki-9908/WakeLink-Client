@@ -1,6 +1,7 @@
 import sqlite3
 from sqlite3 import OperationalError
 from common.context import Context
+from db.migrate import Migrator
 
 
 class SQLiteManager:
@@ -9,10 +10,9 @@ class SQLiteManager:
         self.logger = context.logger
 
         # 設定ファイル読み込み
-        db_path = context.config.DB_PATH
-        self.db_path = db_path
+        self.db_path = context.config.DB_PATH
+        self.migrations_dir = context.config.DB_MIGRATIONS_PATH
         self.conn = None
-        self.create()
 
     def connect(self):
         """データベース接続"""
@@ -38,16 +38,6 @@ class SQLiteManager:
         cursor.execute(query, params or ())
         self.conn.commit()
 
-    def create(self):
-        self.connect()
-        with sqlite3.connect(self.db_path) as self.conn:
-            try:
-                cur = self.conn.cursor()
-                # table生成
-                cur.execute('CREATE TABLE my_host(id INTEGER PRIMARY KEY AUTOINCREMENT, host STRING, ip_addr STRING, port STRING, user STRING, password STRING, mac_addr STRING)')
-                # DBコミット
-                self.conn.commit()
-            except OperationalError as e:
-                pass
-            except Exception as e:
-                self.logger.error(e)
+    def migration(self):
+        migrator = Migrator(self.db_path, self.migrations_dir)
+        migrator.run()
